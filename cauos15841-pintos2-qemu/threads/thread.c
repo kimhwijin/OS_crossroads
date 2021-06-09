@@ -24,6 +24,11 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 
+static struct list fq0_list;
+static struct list fq1_list;
+static struct list fq2_list;
+static struct list fq3_list;
+
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
@@ -95,6 +100,12 @@ thread_init (void)
 
   lock_init (&tid_lock);
   list_init (&ready_list);
+
+  list_init (&fq0_list);
+  list_init (&fq1_list);
+  list_init (&fq2_list);
+  list_init (&fq3_list);
+
   list_init (&all_list);
   list_init (&sleep_list);
 
@@ -105,6 +116,16 @@ thread_init (void)
   initial_thread->tid = allocate_tid ();
 }
 
+void 
+fq_init(void)
+{
+  printf("init");
+  list_init(&fq0_list);
+  list_init(&fq1_list);
+  list_init(&fq2_list);
+  list_init(&fq3_list);
+
+}
 /* Starts preemptive thread scheduling by enabling interrupts.
    Also creates the idle thread. */
 void
@@ -242,7 +263,16 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  
+  if (t->priority == 0)
+    list_push_back(&fq0_list, &t->elem);
+  else if (t->priority == 1)
+    list_push_back(&fq1_list, &t->elem);
+  else if (t->priority == 2)
+    list_push_back(&fq2_list, &t->elem);
+  else if (t->priority == 3)
+    list_push_back(&fq3_list, &t->elem);
+
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -551,11 +581,17 @@ alloc_frame (struct thread *t, size_t size)
    idle_thread. */
 static struct thread *
 next_thread_to_run (void) 
-{
-  if (list_empty (&ready_list))
-    return idle_thread;
+{ 
+  if (!list_empty (&fq0_list))
+    return list_entry (list_pop_front (&fq0_list), struct thread, elem);
+  else if (!list_empty (&fq1_list))
+    return list_entry (list_pop_front (&fq1_list), struct thread, elem);
+  else if (!list_empty (&fq2_list))
+    return list_entry (list_pop_front (&fq2_list), struct thread, elem);
+  else if (!list_empty (&fq3_list))
+    return list_entry (list_pop_front (&fq3_list), struct thread, elem);
   else
-    return list_entry (list_pop_front (&ready_list), struct thread, elem);
+    return idle_thread;
 }
 
 /* Completes a thread switch by activating the new thread's page
